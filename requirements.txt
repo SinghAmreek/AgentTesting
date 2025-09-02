@@ -1,2 +1,7 @@
 # DeepEval
 deepeval
+
+# packages for Azure AI Projects and Agents
+azure-ai-projects
+azure-ai-agents
+azure-identity
