@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title id="head-title">multi_turn_eval_openai.html</title>
+      <style type="text/css">body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  /* do not increase min-width as some may use split screens */
+  min-width: 800px;
+  color: #999;
+}
+
+h1 {
+  font-size: 24px;
+  color: black;
+}
+
+h2 {
+  font-size: 16px;
+  color: black;
+}
+
+p {
+  color: black;
+}
+
+a {
+  color: #999;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+/******************************
+ * SUMMARY INFORMATION
+ ******************************/
+#environment td {
+  padding: 5px;
+  border: 1px solid #e6e6e6;
+  vertical-align: top;
+}
+#environment tr:nth-child(odd) {
+  background-color: #f6f6f6;
+}
+#environment ul {
+  margin: 0;
+  padding: 0 20px;
+}
+
+/******************************
+ * TEST RESULT COLORS
+ ******************************/
+span.passed,
+.passed .col-result {
+  color: green;
+}
+
+span.skipped,
+span.xfailed,
+span.rerun,
+.skipped .col-result,
+.xfailed .col-result,
+.rerun .col-result {
+  color: orange;
+}
+
+span.error,
+span.failed,
+span.xpassed,
+.error .col-result,
+.failed .col-result,
+.xpassed .col-result {
+  color: red;
+}
+
+.col-links__extra {
+  margin-right: 3px;
+}
+
+/******************************
+ * RESULTS TABLE
+ *
+ * 1. Table Layout
+ * 2. Extra
+ * 3. Sorting items
+ *
+ ******************************/
+/*------------------
+ * 1. Table Layout
+ *------------------*/
+#results-table {
+  border: 1px solid #e6e6e6;
+  color: #999;
+  font-size: 12px;
+  width: 100%;
+}
+#results-table th,
+#results-table td {
+  padding: 5px;
+  border: 1px solid #e6e6e6;
+  text-align: left;
+}
+#results-table th {
+  font-weight: bold;
+}
+
+/*------------------
+ * 2. Extra
+ *------------------*/
+.logwrapper {
+  max-height: 230px;
+  overflow-y: scroll;
+  background-color: #e6e6e6;
+}
+.logwrapper.expanded {
+  max-height: none;
+}
+.logwrapper.expanded .logexpander:after {
+  content: "collapse [-]";
+}
+.logwrapper .logexpander {
+  z-index: 1;
+  position: sticky;
+  top: 10px;
+  width: max-content;
+  border: 1px solid;
+  border-radius: 3px;
+  padding: 5px 7px;
+  margin: 10px 0 10px calc(100% - 80px);
+  cursor: pointer;
+  background-color: #e6e6e6;
+}
+.logwrapper .logexpander:after {
+  content: "expand [+]";
+}
+.logwrapper .logexpander:hover {
+  color: #000;
+  border-color: #000;
+}
+.logwrapper .log {
+  min-height: 40px;
+  position: relative;
+  top: -50px;
+  height: calc(100% + 50px);
+  border: 1px solid #e6e6e6;
+  color: black;
+  display: block;
+  font-family: "Courier New", Courier, monospace;
+  padding: 5px;
+  padding-right: 80px;
+  white-space: pre-wrap;
+}
+
+div.media {
+  border: 1px solid #e6e6e6;
+  float: right;
+  height: 240px;
+  margin: 0 5px;
+  overflow: hidden;
+  width: 320px;
+}
+
+.media-container {
+  display: grid;
+  grid-template-columns: 25px auto 25px;
+  align-items: center;
+  flex: 1 1;
+  overflow: hidden;
+  height: 200px;
+}
+
+.media-container--fullscreen {
+  grid-template-columns: 0px auto 0px;
+}
+
+.media-container__nav--right,
+.media-container__nav--left {
+  text-align: center;
+  cursor: pointer;
+}
+
+.media-container__viewport {
+  cursor: pointer;
+  text-align: center;
+  height: inherit;
+}
+.media-container__viewport img,
+.media-container__viewport video {
+  object-fit: cover;
+  width: 100%;
+  max-height: 100%;
+}
+
+.media__name,
+.media__counter {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  flex: 0 0 25px;
+  align-items: center;
+}
+
+.collapsible td:not(.col-links) {
+  cursor: pointer;
+}
+.collapsible td:not(.col-links):hover::after {
+  color: #bbb;
+  font-style: italic;
+  cursor: pointer;
+}
+
+.col-result {
+  width: 130px;
+}
+.col-result:hover::after {
+  content: " (hide details)";
+}
+
+.col-result.collapsed:hover::after {
+  content: " (show details)";
+}
+
+#environment-header h2:hover::after {
+  content: " (hide details)";
+  color: #bbb;
+  font-style: italic;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+#environment-header.collapsed h2:hover::after {
+  content: " (show details)";
+  color: #bbb;
+  font-style: italic;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+/*------------------
+ * 3. Sorting items
+ *------------------*/
+.sortable {
+  cursor: pointer;
+}
+.sortable.desc:after {
+  content: " ";
+  position: relative;
+  left: 5px;
+  bottom: -12.5px;
+  border: 10px solid #4caf50;
+  border-bottom: 0;
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+.sortable.asc:after {
+  content: " ";
+  position: relative;
+  left: 5px;
+  bottom: 12.5px;
+  border: 10px solid #4caf50;
+  border-top: 0;
+  border-left-color: transparent;
+  border-right-color: transparent;
+}
+
+.hidden, .summary__reload__button.hidden {
+  display: none;
+}
+
+.summary__data {
+  flex: 0 0 550px;
+}
+.summary__reload {
+  flex: 1 1;
+  display: flex;
+  justify-content: center;
+}
+.summary__reload__button {
+  flex: 0 0 300px;
+  display: flex;
+  color: white;
+  font-weight: bold;
+  background-color: #4caf50;
+  text-align: center;
+  justify-content: center;
+  align-items: center;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.summary__reload__button:hover {
+  background-color: #46a049;
+}
+.summary__spacer {
+  flex: 0 0 550px;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+}
+
+.filters,
+.collapse {
+  display: flex;
+  align-items: center;
+}
+.filters button,
+.collapse button {
+  color: #999;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.filters button:hover,
+.collapse button:hover {
+  color: #ccc;
+}
+
+.filter__label {
+  margin-right: 10px;
+}
+
+      </style>
+    
+  </head>
+  <body>
+    <h1 id="title">multi_turn_eval_openai.html</h1>
+    <p>Report generated on 28-Sep-2025 at 00:21:40 by <a href="https://pypi.python.org/pypi/pytest-html">pytest-html</a>
+        v4.1.1</p>
+    <div id="environment-header">
+      <h2>Environment</h2>
+    </div>
+    <table id="environment"></table>
+    <!-- TEMPLATES -->
+      <template id="template_environment_row">
+      <tr>
+        <td></td>
+        <td></td>
+      </tr>
+    </template>
+    <template id="template_results-table__body--empty">
+      <tbody class="results-table-row">
+        <tr id="not-found-message">
+          <td colspan="9">No results found. Check the filters.</th>
+        </tr>
+    </template>
+    <template id="template_results-table__tbody">
+      <tbody class="results-table-row">
+        <tr class="collapsible">
+        </tr>
+        <tr class="extras-row">
+          <td class="extra" colspan="9">
+            <div class="extraHTML"></div>
+            <div class="media">
+              <div class="media-container">
+                  <div class="media-container__nav--left"><</div>
+                  <div class="media-container__viewport">
+                    <img src="" />
+                    <video controls>
+                      <source src="" type="video/mp4">
+                    </video>
+                  </div>
+                  <div class="media-container__nav--right">></div>
+                </div>
+                <div class="media__name"></div>
+                <div class="media__counter"></div>
+            </div>
+            <div class="logwrapper">
+              <div class="logexpander"></div>
+              <div class="log"></div>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </template>
+    <!-- END TEMPLATES -->
+    <div class="summary">
+      <div class="summary__data">
+        <h2>Summary</h2>
+        <div class="additional-summary prefix">
+        </div>
+        <p class="run-count">5 tests took 00:02:14.</p>
+        <p class="filter">(Un)check the boxes to filter the results.</p>
+        <div class="summary__reload">
+          <div class="summary__reload__button hidden" onclick="location.reload()">
+            <div>There are still tests running. <br />Reload this page to get the latest results!</div>
+          </div>
+        </div>
+        <div class="summary__spacer"></div>
+        <div class="controls">
+          <div class="filters">
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="failed" />
+            <span class="failed">3 Failed,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="passed" />
+            <span class="passed">2 Passed,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="skipped" disabled/>
+            <span class="skipped">0 Skipped,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="xfailed" disabled/>
+            <span class="xfailed">0 Expected failures,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="xpassed" disabled/>
+            <span class="xpassed">0 Unexpected passes,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="error" disabled/>
+            <span class="error">0 Errors,</span>
+            <input checked="true" class="filter" name="filter_checkbox" type="checkbox" data-test-result="rerun" disabled/>
+            <span class="rerun">0 Reruns</span>
+          </div>
+          <div class="collapse">
+            <button id="show_all_details">Show all details</button>&nbsp;/&nbsp;<button id="hide_all_details">Hide all details</button>
+          </div>
+        </div>
+      </div>
+      <div class="additional-summary summary">
+      </div>
+      <div class="additional-summary postfix">
+      </div>
+    </div>
+    <table id="results-table">
+      <thead id="results-table-head">
+        <tr>
+          <th class="sortable" data-column-type="result">Result</th>
+          <th>User input</th>
+          <th>Expected</th>
+          <th>Actual</th>
+          <th>Score</th>
+          <th>Reason</th>
+          <th>Conversation ID</th>
+          <th class="sortable" data-column-type="duration">Duration</th>
+          <th>Links</th>
+        </tr>
+      </thead>
+    </table>
+  </body>
+  <footer>
+    <div id="data-container" data-jsonblob="{&#34;environment&#34;: {&#34;Python&#34;: &#34;3.13.7&#34;, &#34;Platform&#34;: &#34;Windows-11-10.0.26100-SP0&#34;, &#34;Packages&#34;: {&#34;pytest&#34;: &#34;8.4.1&#34;, &#34;pluggy&#34;: &#34;1.6.0&#34;}, &#34;Plugins&#34;: {&#34;anyio&#34;: &#34;4.10.0&#34;, &#34;deepeval&#34;: &#34;3.3.9&#34;, &#34;asyncio&#34;: &#34;1.1.0&#34;, &#34;cov&#34;: &#34;6.2.1&#34;, &#34;html&#34;: &#34;4.1.1&#34;, &#34;metadata&#34;: &#34;3.1.1&#34;, &#34;repeat&#34;: &#34;0.9.4&#34;, &#34;rerunfailures&#34;: &#34;12.0&#34;, &#34;xdist&#34;: &#34;3.8.0&#34;}}, &#34;tests&#34;: {&#34;tests/multi_turn_eval_openai.py::test_answer_relevancy[What are the best gloves for mining with superior cut rating?- Durashield Cut D Gloves andIt should show the compliance deails.]&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;duration&#34;: &#34;00:00:35&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td&gt;What are the best gloves for mining with superior cut rating?&lt;/td&gt;&#34;, &#34;&lt;td&gt; Durashield Cut D Gloves andIt should show the compliance deails.&lt;/td&gt;&#34;, &#34;&lt;td title=\&#34;**Best Gloves for Mining with Superior Cut Protection**\n\n**Recommended Glove:**\n- **PROSAFE Durashield Cut D Nitrile Foam Gloves**\n  - Specifically suitable for mining, building and construction, forestry, and metal fabrication industries.\n  - Designed for demanding environments where precision and protection against mechanical risks are required.\n  - Made with over 20% post-consumer recycled polyester for durability and comfort.\n  - Features an 18 gauge liner, ultra-lightweight form-fitting design, and micro foam nitrile coating for enhanced grip in wet, oily, or dry conditions.\n  - Offers high Cut Level D protection, blended with high-performance filament fibre for superior cut resistance.\n  - Breathable and touch screen compatible.\n\n**Performance Level Ratings (EN 388:2016 +A1:2018):**\n- **Abrasion Resistance:** Up to 8000 cycles (Level 4)\n- **Blade Cut Resistance (Coupe Test/Index):** Test not carried out (X rating)\n- **Tear Resistance:** Up to 75 Newtons (Level 4)\n- **Puncture Resistance:** Up to 150 Newtons (Level 4)\n- **EN ISO Cut Resistance:** Level D (10 Newtons)\n- **EN Impact Protection:** Not applicable\n\n**Compliance Ratings:**\n- **EN 388:2016 +A1:2018** \u2013 Protective gloves against mechanical risks\n- **ISO 21420** \u2013 General requirements for protective gloves\n- **AS 4399:2020 UPF 50+** \u2013 Sun protection rating\n- **BSI Certified Product**\n\n**Additional Notes:**\n- Gloves should be inspected before each use for damage or defects.\n- Complies with standards for minimal risks only; not suitable where there is risk of entanglement.\n- Available in a range of sizes for optimal fit and safety.\n\nThese gloves meet modern compliance standards similar to EN388:2003 4144, with high ratings for abrasion, tear, and puncture resistance, and superior cut protection suitable for mining applications [1]\u200b[2].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;The best gloves for mining with superior cut protection are the **PROSAFE Durashield Cut D Nitrile Foam Gloves**. These gloves offer high Cut Level D protection, making them suitable for demanding industrial environments like mining. They are made with over 20% post-consumer recycled polyester for durability and comfort, and feature a micro foam nitrile coating for excellent grip in various conditions. Additionally, they are breathable, touch screen compatible, and meet EN 388:2016 +A1:2018 standards for protective gloves against mechanical risks [1]\u200b[2].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\&#34;&gt;**Best Gloves for Mining with Superior Cut Protection**\n\n**Recommended Glove:**\n- **PROSAFE Durashield Cut D Nitrile Foam Gloves**\n  - Specifically suitable for mining, building and construction, forestry, and metal fabrication industries.\n  - Designed for demanding environments where precision and protection against mechanical risks are required.\n  - Made with over 20% post-consumer recycled polyester for durability and comfort.\n  - Features an 18 gauge liner, ultra-lightweight form-fitting design, and micro foam nitrile coating for enhanced grip in wet, oily, or dry conditions.\n  - Offers high Cut Level D protection, blended with high-performance filament fibre for superior cut resistance.\n  - Breathable and touch screen compatible.\n\n**Performance Level Ratings (EN 388:2016 +A1:2018):**\n- **Abrasion Resistance:** Up to 8000 cycles (Level 4)\n- **Blade Cut Resistance (Coupe Test/Index):** Test not carried out (X rating)\n- **Tear Resistance:** Up to 75 Newtons (Level 4)\n- **Puncture Resistance:** Up to 150 Newtons (Level 4)\n- **EN ISO Cut Resistance:** Level D (10 Newtons)\n- **EN Impact Protection:** Not applicable\n\n**Compliance Ratings:**\n- **EN 388:2016 +A1:2018** \u2013 Protective gloves against mechanical risks\n- **ISO 21420** \u2013 General requirements for protective gloves\n- **AS 4399:2020 UPF 50+** \u2013 Sun protection rating\n- **BSI Certified Product**\n\n**Additional Notes:**\n- Gloves should be inspected before each use for damage or defects.\n- Complies with standards for minimal risks only; not suitable where there is risk of entanglement.\n- Available in a range of sizes for optimal fit and safety.\n\nThese gloves meet modern compliance standards similar to EN388:2003 4144, with high ratings for abrasion, tear, and puncture resistance, and superior cut protection suitable for mining applications [1]\u200b[2].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;The best gloves for mining with superior cut protection are the **PROSAFE Durashield Cut D Nitrile Foam Gloves**. These gloves offer high Cut Level D protection, making them suitable for demanding industrial environments like mining. They are made with over 20% post-consumer recycled polyester for durability and comfort, and feature a micro foam nitrile coating for excellent grip in various conditions. Additionally, they are breathable, touch screen compatible, and meet EN 388:2016 +A1:2018 standards for protective gloves against mechanical risks [1]\u200b[2].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;&lt;/td&gt;&#34;, &#34;&lt;td&gt;0.82&lt;/td&gt;&#34;, &#34;&lt;td title=\&#34;The actual output correctly identifies Durashield Cut D gloves as recommended for mining with superior cut rating and provides detailed compliance information, aligning with the expected output. It also includes extensive details on glove materials, performance ratings, standards, and training processes, which adds value and avoids omission of detail. However, the response includes information about other glove types and training that, while relevant, slightly dilutes focus from the specific expected answer. There are no factual contradictions, and the required details are present.\&#34;&gt;The actual output correctly identifies Durashield Cut D gloves as recommended for mining with superior cut rating and provides detailed compliance information, aligning with the expected output. It also includes extensive details on glove materials, performance ratings, standards, and training processes, which adds value and avoids omission of detail. However, the response includes information about other glove types and training that, while relevant, slightly dilutes focus from the specific expected answer. There are no factual contradictions, and the required details are present.&lt;/td&gt;&#34;, &#34;&lt;td&gt;06ef511f-3c80-4bcf-b53e-2b4a6b10d3f8&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:35&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;---------------------------- Captured stdout setup -----------------------------\n[DEBUG] Started conclearversation with ID: 06ef511f-3c80-4bcf-b53e-2b4a6b10d3f8\n\n----------------------------- Captured stderr call -----------------------------\n\n&#34;}], &#34;tests/multi_turn_eval_openai.py::test_answer_relevancy[Is there any altenative to these gloves with leather option?- Another gloves.]&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;duration&#34;: &#34;00:00:25&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td&gt;Is there any altenative to these gloves with leather option?&lt;/td&gt;&#34;, &#34;&lt;td&gt; Another gloves.&lt;/td&gt;&#34;, &#34;&lt;td title=\&#34;**Leather Alternative for Mining with Superior Cut Protection**\n\n- The **WeldTECH Black &amp;amp; Gold Glove** is a leather glove suitable for mining and related heavy-duty applications. It is constructed from AB Grade blue split shoulder cow leather and features flame retardant stitching, cotton knit lining for comfort, and a denim-lined cuff for added protection.\n- This glove complies with **EN388:2003** and has a performance level rating of **4144**, which indicates high abrasion, cut, tear, and puncture resistance.\n- It is designed for use in environments requiring protection against mechanical and heat hazards, such as welding, torch cutting, and grinding, making it a robust alternative to the PROSAFE Durashield Cut D Nitrile Foam Gloves for mining applications.\n- The glove also meets additional standards for heat and flame protection, further enhancing its suitability for demanding industrial settings [1].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;For mining applications requiring leather gloves with superior cut protection, the **WeldTECH Black &amp;amp; Gold Glove** is a robust option. It is made from AB Grade blue split shoulder cow leather and designed for protection during welding, torch cutting, and grinding, which are activities often encountered in mining. It features flame retardant stitching, a cotton knit lining for comfort, and a denim-lined cuff for added protection. The glove complies with EN 388:2003 and EN 407:2004 standards, offering good abrasion, tear, and puncture resistance, as well as heat and flame protection. However, its blade cut resistance is rated at level 1, which may not be considered &amp;quot;superior&amp;quot; for cut protection in high-risk mining environments [1].\n\nAnother option is the **Goat Palm Mechanics Glove**, which features a soft, durable goatskin palm and fingers, vented air mesh spandex back for flexibility, and a hook and loop fastener for a secure fit. It complies with EN 388:2016 standards and is suitable for heavy equipment operation, construction, and earthworks, which are relevant to mining. However, its blade cut resistance is not rated, so it may not provide the superior cut protection required for mining tasks [2].\n\nFor superior cut protection, the **Durashield Cut D Nitrile Foam Glove** offers high cut level D protection and superior cut resistance, but it is not a leather glove [3].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;\&#34;&gt;**Leather Alternative for Mining with Superior Cut Protection**\n\n- The **WeldTECH Black &amp;amp; Gold Glove** is a leather glove suitable for mining and related heavy-duty applications. It is constructed from AB Grade blue split shoulder cow leather and features flame retardant stitching, cotton knit lining for comfort, and a denim-lined cuff for added protection.\n- This glove complies with **EN388:2003** and has a performance level rating of **4144**, which indicates high abrasion, cut, tear, and puncture resistance.\n- It is designed for use in environments requiring protection against mechanical and heat hazards, such as welding, torch cutting, and grinding, making it a robust alternative to the PROSAFE Durashield Cut D Nitrile Foam Gloves for mining applications.\n- The glove also meets additional standards for heat and flame protection, further enhancing its suitability for demanding industrial settings [1].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;For mining applications requiring leather gloves with superior cut protection, the **WeldTECH Black &amp;amp; Gold Glove** is a robust option. It is made from AB Grade blue split shoulder cow leather and designed for protection during welding, torch cutting, and grinding, which are activities often encountered in mining. It features flame retardant stitching, a cotton knit lining for comfort, and a denim-lined cuff for added protection. The glove complies with EN 388:2003 and EN 407:2004 standards, offering good abrasion, tear, and puncture resistance, as well as heat and flame protection. However, its blade cut resistance is rated at level 1, which may not be considered &amp;quot;superior&amp;quot; for cut protection in high-risk mining environments [1].\n\nAnother option is the **Goat Palm Mechanics Glove**, which features a soft, durable goatskin palm and fingers, vented air mesh spandex back for flexibility, and a hook and loop fastener for a secure fit. It complies with EN 388:2016 standards and is suitable for heavy equipment operation, construction, and earthworks, which are relevant to mining. However, its blade cut resistance is not rated, so it may not provide the superior cut protection required for mining tasks [2].\n\nFor superior cut protection, the **Durashield Cut D Nitrile Foam Glove** offers high cut level D protection and superior cut resistance, but it is not a leather glove [3].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;&lt;/td&gt;&#34;, &#34;&lt;td&gt;0.19&lt;/td&gt;&#34;, &#34;&lt;td title=\&#34;The actual output provides extensive information about glove options, materials, standards, and training, but fails to directly answer the user&amp;apos;s simple question about alternatives to leather gloves. While it does mention goatskin leather as an option and lists other materials, the response is overly detailed and omits a clear, direct statement that alternatives exist. This omission of a straightforward answer and excessive detail relative to the expected output warrants a low score.\&#34;&gt;The actual output provides extensive information about glove options, materials, standards, and training, but fails to directly answer the user&amp;apos;s simple question about alternatives to leather gloves. While it does mention goatskin leather as an option and lists other materials, the response is overly detailed and omits a clear, direct statement that alternatives exist. This omission of a straightforward answer and excessive detail relative to the expected output warrants a low score.&lt;/td&gt;&#34;, &#34;&lt;td&gt;06ef511f-3c80-4bcf-b53e-2b4a6b10d3f8&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:25&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;input_text = &amp;#x27;Is there any altenative to these gloves with leather option?&amp;#x27;, expected_output = &amp;#x27; Another gloves.&amp;#x27;\nstarted_client = &amp;lt;testinglib.copilot_client.CopilotStudioClient object at 0x0000013703BC9160&amp;gt;\nrequest = &amp;lt;FixtureRequest for &amp;lt;Coroutine test_answer_relevancy[Is there any altenative to these gloves with leather option?- Another gloves.]&amp;gt;&amp;gt;\n\n    @pytest.mark.asyncio\n    @pytest.mark.parametrize(&amp;quot;input_text, expected_output&amp;quot;, test_cases)\n    async def test_answer_relevancy(input_text, expected_output, started_client, request):\n        actual_output = &amp;quot;&amp;quot;\n        async for activity in started_client.client.ask_question(input_text):\n            if activity and activity.type == ActivityTypes.message:\n                actual_output += activity.text or &amp;quot;&amp;quot;\n    \n        test_case = LLMTestCase(\n            input=input_text,\n            #actual_output=actual_output.strip(),\n            actual_output=&amp;#x27;Turn 1 - Azure AI Agent: Absolutely! Cut-resistant gloves are essential for mining operations due to the risk of handling sharp tools, heavy machinery, and jagged rocks. \\n\\nCould you share which specific tasks or materials your team handles most often? That way, I can recommend the right glove materials and cut-resistance levels for your environment.\\n\\nTurn 2 - Copilot Studio: **Cut-Resistant Gloves for Mining Operations**\\n\\n**Common Mining Tasks and Materials:**\\n- Handling sharp tools and equipment\\n- Operating heavy machinery\\n- Managing jagged rocks and metal components\\n\\n**Recommended Glove Materials:**\\n- **Polyethylene and Recycled Polyester:** Offers durability and cut resistance, suitable for tasks requiring protection against mechanical risks.\\n- **Nitrile Coating:** Provides enhanced grip in wet, oily, or dry conditions, and improves breathability for comfort during extended use.\\n- **Goatskin Leather:** Delivers comfort and flexibility, ideal for tasks requiring dexterity and abrasion resistance.\\n\\n**Performance Level Ratings (EN 388:2016):**\\n- **Durashield Cut D Nitrile Foam Gloves:**\\n  - Abrasion Resistance: Level 4 (8000 cycles)\\n  - Blade Cut Resistance: Level 5 (20.0 index)\\n  - Tear Resistance: Level 4 (75 Newtons)\\n  - Puncture Resistance: Level 4 (150 Newtons)\\n  - EN ISO Cut Resistance: Level D (15 Newtons)\\n  - Impact Protection: Not Applicable\\n  - Complies with EN 388:2016 +A1:2018 and ISO 21420 standards\\n  - Suitable for mining and metal fabrication industries [1]\\u200b[2]\\n\\n- **Mechanics Goat Palm W901 Glove:**\\n  - Abrasion Resistance: Level 2 (500 cycles)\\n  - Blade Cut Resistance: Level 1 (1.2 index)\\n  - Tear Resistance: Level 1 (25 Newtons)\\n  - Puncture Resistance: Level 1 (60 Newtons)\\n  - EN ISO Cut Resistance: Not rated\\n  - Impact Protection: Not Applicable\\n  - Complies with EN 388:2016 standards\\n  - Suitable for heavy equipment operation and general maintenance in mining [3]\\n\\n**Compliance Examples:**\\n- EN 388:2016 +A1:2018 Protective gloves against mechanical risks\\n- ISO 21420 General requirements for protective gloves\\n- AS 4399:2020 UPF 50+ for sun protection [1]\\u200b[2]\\n\\n**Selection Guidance:**\\n- For high-risk tasks involving sharp or jagged materials, select gloves with higher cut resistance (Level D or above).\\n- For tasks requiring dexterity and comfort, consider gloves with flexible materials and ergonomic design.\\n- Always inspect gloves before use and replace if damaged to maintain safety standards.\\n\\nThese recommendations ensure your team is protected according to industry standards and the specific hazards present in mining operations [1]\\u200b[3]\\u200b[2].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;**Tasks and Materials Handled by Mining Teams:**\\n\\n- **Building and Construction:** Mining teams are often involved in tasks related to building and construction within mining sites, such as erecting structures or maintaining facilities.\\n- **Forestry:** Some mining operations may intersect with forestry activities, requiring handling of wood and related materials.\\n- **Metal Fabrication:** Mining teams frequently handle metal materials, including extraction, processing, and fabrication of metals.\\n- **Mechanical Risks:** Tasks often involve handling materials or equipment that pose mechanical risks, necessitating protective gloves and other safety gear.\\n\\nThese activities require protection against mechanical risks, and suitable gloves are recommended for these tasks to ensure safety and compliance with industry standards [1].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n\\nTurn 3 - Azure AI Agent: Thanks for the detailed breakdown and the EN 388 ratings\u2014those are crucial for selecting the right gloves.\\n\\nGiven the variety of tasks, how do you currently train your team on glove selection and proper use? Do you have a standardized process in place, or does it vary depending on the operation or job role?\\n\\nTurn 4 - Copilot Studio: **Glove Selection and Training in Mining Operations**\\n\\n**Standardized Process vs. Role-Based Variation**\\n- Training on glove selection and proper use can be standardized or tailored based on the specific operation or job role.\\n- A standardized process typically involves:\\n  - Educating workers on the importance of wearing the correct glove size, as poorly fitted gloves can be hazardous by restricting dexterity or affecting grip and comfort.\\n  - Instructing staff to measure hand circumference 2cm up from the base of the thumb to determine the correct glove size.\\n  - Providing guidelines for inspecting gloves before each use to ensure they are not torn, punctured, or otherwise compromised.\\n  - Training on cleaning, storage, and disposal procedures, such as spot cleaning with a damp cloth, storing gloves in cool, dry places away from sunlight, and disposing of damaged gloves according to local regulations.\\n- Role-based variation may occur, with specific gloves recommended for tasks like welding, heavy equipment operation, or metal fabrication, each requiring different performance ratings and compliance standards.\\n\\n**Examples of Performance Level Ratings and Compliance Levels**\\n- **EN 388:2016** and **EN 388:2003** are common standards for mechanical risks, with ratings such as:\\n  - **2111X**: Indicates levels for abrasion, blade cut, tear, and puncture resistance, with \\&amp;#x27;X\\&amp;#x27; meaning a test was not carried out.\\n  - **4144**: For example, the WeldTECH Black Glove is rated 4144 under EN388:2003, which means:\\n    - Abrasion Resistance: Level 4\\n    - Blade Cut Resistance: Level 1\\n    - Tear Resistance: Level 4\\n    - Puncture Resistance: Level 4\\n- **EN 407:2004**: For heat and flame hazards, with ratings like 414X4X, indicating performance in burning behavior, contact heat, convective heat, radiant heat, and molten metal resistance.\\n- **EN 388:2016 +A1:2018** and **ISO 21420**: For gloves like Durashield Cut D, which are suitable for mining and metal fabrication, ensuring protection against mechanical risks and general requirements for protective gloves.\\n\\n**Practical Training Steps**\\n- Workers are trained to:\\n  - Inspect gloves for damage before use and replace if necessary.\\n  - Select gloves based on the required performance level for the task (e.g., higher abrasion and tear resistance for heavy-duty tasks).\\n  - Follow cleaning and storage instructions to maintain glove integrity.\\n  - Dispose of gloves responsibly, following local regulations.\\n\\n**Summary**\\n- Mining operations may use a combination of standardized training and role-specific guidelines for glove selection and use.\\n- Performance ratings like EN388:2003 4144 and compliance with standards such as EN 388:2016, EN 407:2004, and ISO 21420 are integral to the process, ensuring workers are protected according to the risks of their specific tasks [1]\\u200b[2]\\u200b[3].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;**Glove Selection and Training in Mining Operations**\\n\\n**Training Approach:**\\n- Teams are typically trained to select gloves based on the specific mechanical risks present in their work environment. For example, gloves like the PROSAFE Durashield Cut D are suitable for industries such as mining, metal fabrication, construction, and forestry, where protection against mechanical risks is essential.\\n- Training includes understanding the standards and compliance requirements, such as EN 388:2016 +A1:2018 for mechanical risks and ISO 21420 for general requirements. Workers are instructed to inspect gloves before each use to ensure they are not torn, punctured, or otherwise ineffective.\\n- Proper glove use is emphasized, including the importance of wearing the correct size for optimal dexterity and safety. Teams are taught how to measure hand circumference and select the appropriate glove size, as poorly fitted gloves can be hazardous by restricting movement or affecting grip and dexterity.\\n- Instructions are provided on glove care, including washing, drying, and storage, as well as regular checks for degradation over time.\\n\\n**Standardization:**\\n- There are standardized processes based on international and national standards (such as EN 388:2016 +A1:2018, ISO 21420, and AS 4399:2020 UPF 50+), which guide glove selection and use.\\n- However, the specific training and selection process may vary by operation or job role, depending on the unique risks and requirements of each task or site. For example, some gloves are only for minimal risks and should not be used where there is a risk of entanglement.\\n\\n**Summary:**\\n- While there are standardized guidelines and compliance requirements, the actual training and glove selection process can vary depending on the operation and job role, tailored to the specific hazards and needs of the mining environment [1]\\u200b[2].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\\n\\nTurn 5 - Azure AI Agent: That\u2019s a thorough approach, especially with the emphasis on sizing and inspection. \\n\\nHow often do you conduct refresher training or audits to ensure ongoing compliance with glove use and maintenance procedures? Have you noticed any challenges with adoption or consistency among different teams or roles?\\n\\n&amp;#x27;,\n            expected_output=expected_output\n        )\n    \n        metric = GEval(\n            name=&amp;quot;Correctness&amp;quot;,\n            evaluation_steps=[\n                &amp;quot;Check whether the facts in &amp;#x27;actual output&amp;#x27; contradict any facts in &amp;#x27;expected output&amp;#x27;&amp;quot;,\n                &amp;quot;You should also heavily penalize omission of detail&amp;quot;,\n                &amp;quot;Vague language, or contradicting OPINIONS, are OK&amp;quot;,\n                &amp;quot;Do not penalize disclaimers about AI-generated content being possibly incorrect&amp;quot;,\n            ],\n            threshold=0.50,\n            evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT, LLMTestCaseParams.EXPECTED_OUTPUT]\n        )\n        metric.measure(test_case)\n    \n        # Attach to pytest-html report\n        request.node.input_text = input_text\n        request.node.expected = expected_output\n        request.node.actual = actual_output.strip()\n        request.node.reason = metric.reason\n        request.node.score = f&amp;quot;{metric.score:.2f}&amp;quot;\n        request.node.conversation_id = started_client.conversation_id\n    \n&amp;gt;       assert metric.score &amp;gt;= metric.threshold, f&amp;quot;Score: {metric.score:.2f}, Reason: {metric.reason}&amp;quot;\nE       AssertionError: Score: 0.19, Reason: The actual output provides extensive information about glove options, materials, standards, and training, but fails to directly answer the user&amp;#x27;s simple question about alternatives to leather gloves. While it does mention goatskin leather as an option and lists other materials, the response is overly detailed and omits a clear, direct statement that alternatives exist. This omission of a straightforward answer and excessive detail relative to the expected output warrants a low score.\nE       assert 0.19198701076373387 &amp;gt;= 0.5\nE        +  where 0.19198701076373387 = &amp;lt;deepeval.metrics.g_eval.g_eval.GEval object at 0x0000013703A66C10&amp;gt;.score\nE        +  and   0.5 = &amp;lt;deepeval.metrics.g_eval.g_eval.GEval object at 0x0000013703A66C10&amp;gt;.threshold\n\ntests\\multi_turn_eval_openai.py:68: AssertionError\n\n----------------------------- Captured stderr call -----------------------------\n\n&#34;}], &#34;tests/multi_turn_eval_openai.py::test_answer_relevancy[What the compliance ratings fo these gloves?-some compliance information.]&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Passed&#34;, &#34;duration&#34;: &#34;00:00:28&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Passed&lt;/td&gt;&#34;, &#34;&lt;td&gt;What the compliance ratings fo these gloves?&lt;/td&gt;&#34;, &#34;&lt;td&gt;some compliance information.&lt;/td&gt;&#34;, &#34;&lt;td title=\&#34;**Compliance Ratings and Performance Level Ratings for WeldTECH Black &amp;amp; Gold Glove**\n\n**Compliance Ratings:**\n- **EN 388:2003 \u2013 AS/NZS 2161.3:2005:** This standard covers mechanical hazards.\n- **EN 407:2004 \u2013 AS/NZS 2161.4:1999:** This standard covers heat and flame hazards.\n- **EN 12477:2001:** Protective gloves for welders.\n\n**Performance Level Ratings (EN388:2003):**\n- **Abrasion Resistance:** 4 (highest level, 8000 cycles)\n- **Blade Cut Resistance:** 1 (lowest level, index 1.2)\n- **Tear Resistance:** 4 (highest level, 75 Newtons)\n- **Puncture Resistance:** 4 (highest level, 150 Newtons)\n\n**Performance Level Ratings (EN407:2004):**\n- **Burning Behaviour:** 4\n- **Contact Heat:** 1\n- **Convective Heat:** 4\n- **Radiant Heat:** X (not tested)\n- **Small Drops Molten Metal:** 4\n- **Large Quantity Molten Metal:** X (not tested)\n\n**Example Rating:**\n- The WeldTECH Black &amp;amp; Gold Glove is rated **EN388:2003 4144**, where:\n  - 4 = Abrasion resistance\n  - 1 = Blade cut resistance\n  - 4 = Tear resistance\n  - 4 = Puncture resistance\n\nThese ratings indicate the glove provides excellent protection against abrasion, tearing, and puncture, but lower protection against blade cuts. It is suitable for welding and related tasks where heat and mechanical risks are present [1].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;**Compliance Ratings for WeldTECH Black &amp;amp; Gold Glove**\n\n- **EN 388:2003 \u2013 AS/NZS 2161.3:2005 (Mechanical Hazard)**\n  - Abrasion Resistance: Level 4\n  - Blade Cut Resistance: Level 1\n  - Tear Resistance: Level 4\n  - Puncture Resistance: Level 4\n\n- **EN 407:2004 \u2013 AS/NZS 2161.4:1999 (Heat &amp;amp; Flame Hazard)**\n  - Burning behaviour: Level 4\n  - Contact heat: Level 1\n  - Convective heat: Level 4\n  - Radiant heat: Not rated (X)\n  - Small drops molten heat: Level 4\n  - Large quantity molten metal: Not rated (X)\n\n- **EN 12477:2001 \u2013 Protective gloves for welders**\n  - The glove complies with this standard for welding protection [1].\n\n---\n\n**Compliance Ratings for PROSAFE Durashield Cut D Nitrile Foam Gloves**\n\n- **EN 388:2016 +A1:2018 (Protective gloves against mechanical risks)**\n  - Abrasion Resistance: Level 4\n  - Blade Cut Resistance (Coupe Test): Not rated (X)\n  - Tear Resistance: Level 4\n  - Puncture Resistance: Level 4\n  - EN ISO Cut Resistance: Level D\n\n- **ISO 21420:2020 (General requirements for protective gloves)**\n  - The glove complies with this standard.\n\n- **AS 4399:2020 (UPF 50+ for sun protection)**\n  - The glove is certified for UPF 50+ protection.\n\n- **BSI Certified Product BMP No 801210**\n  - The glove is BSI certified under the listed standards [2]\u200b[3].\n\n---\n\n**Summary**\n- WeldTECH Black &amp;amp; Gold Glove: Complies with EN 388:2003, EN 407:2004, EN 12477:2001, and AS/NZS standards for welding and mechanical hazards.\n- PROSAFE Durashield Cut D Nitrile Foam Gloves: Complies with EN 388:2016 +A1:2018, ISO 21420:2020, AS 4399:2020, and is BSI certified for mechanical risks and sun protection.\n\n[1]: cite:79_1 &amp;quot;Citation-79_1&amp;quot;\n[2]: cite:79_2 &amp;quot;Citation-79_2&amp;quot;\n[3]: cite:79_3 &amp;quot;Citation-79_3&amp;quot;\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;\&#34;&gt;**Compliance Ratings and Performance Level Ratings for WeldTECH Black &amp;amp; Gold Glove**\n\n**Compliance Ratings:**\n- **EN 388:2003 \u2013 AS/NZS 2161.3:2005:** This standard covers mechanical hazards.\n- **EN 407:2004 \u2013 AS/NZS 2161.4:1999:** This standard covers heat and flame hazards.\n- **EN 12477:2001:** Protective gloves for welders.\n\n**Performance Level Ratings (EN388:2003):**\n- **Abrasion Resistance:** 4 (highest level, 8000 cycles)\n- **Blade Cut Resistance:** 1 (lowest level, index 1.2)\n- **Tear Resistance:** 4 (highest level, 75 Newtons)\n- **Puncture Resistance:** 4 (highest level, 150 Newtons)\n\n**Performance Level Ratings (EN407:2004):**\n- **Burning Behaviour:** 4\n- **Contact Heat:** 1\n- **Convective Heat:** 4\n- **Radiant Heat:** X (not tested)\n- **Small Drops Molten Metal:** 4\n- **Large Quantity Molten Metal:** X (not tested)\n\n**Example Rating:**\n- The WeldTECH Black &amp;amp; Gold Glove is rated **EN388:2003 4144**, where:\n  - 4 = Abrasion resistance\n  - 1 = Blade cut resistance\n  - 4 = Tear resistance\n  - 4 = Puncture resistance\n\nThese ratings indicate the glove provides excellent protection against abrasion, tearing, and puncture, but lower protection against blade cuts. It is suitable for welding and related tasks where heat and mechanical risks are present [1].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;**Compliance Ratings for WeldTECH Black &amp;amp; Gold Glove**\n\n- **EN 388:2003 \u2013 AS/NZS 2161.3:2005 (Mechanical Hazard)**\n  - Abrasion Resistance: Level 4\n  - Blade Cut Resistance: Level 1\n  - Tear Resistance: Level 4\n  - Puncture Resistance: Level 4\n\n- **EN 407:2004 \u2013 AS/NZS 2161.4:1999 (Heat &amp;amp; Flame Hazard)**\n  - Burning behaviour: Level 4\n  - Contact heat: Level 1\n  - Convective heat: Level 4\n  - Radiant heat: Not rated (X)\n  - Small drops molten heat: Level 4\n  - Large quantity molten metal: Not rated (X)\n\n- **EN 12477:2001 \u2013 Protective gloves for welders**\n  - The glove complies with this standard for welding protection [1].\n\n---\n\n**Compliance Ratings for PROSAFE Durashield Cut D Nitrile Foam Gloves**\n\n- **EN 388:2016 +A1:2018 (Protective gloves against mechanical risks)**\n  - Abrasion Resistance: Level 4\n  - Blade Cut Resistance (Coupe Test): Not rated (X)\n  - Tear Resistance: Level 4\n  - Puncture Resistance: Level 4\n  - EN ISO Cut Resistance: Level D\n\n- **ISO 21420:2020 (General requirements for protective gloves)**\n  - The glove complies with this standard.\n\n- **AS 4399:2020 (UPF 50+ for sun protection)**\n  - The glove is certified for UPF 50+ protection.\n\n- **BSI Certified Product BMP No 801210**\n  - The glove is BSI certified under the listed standards [2]\u200b[3].\n\n---\n\n**Summary**\n- WeldTECH Black &amp;amp; Gold Glove: Complies with EN 388:2003, EN 407:2004, EN 12477:2001, and AS/NZS standards for welding and mechanical hazards.\n- PROSAFE Durashield Cut D Nitrile Foam Gloves: Complies with EN 388:2016 +A1:2018, ISO 21420:2020, AS 4399:2020, and is BSI certified for mechanical risks and sun protection.\n\n[1]: cite:79_1 &amp;quot;Citation-79_1&amp;quot;\n[2]: cite:79_2 &amp;quot;Citation-79_2&amp;quot;\n[3]: cite:79_3 &amp;quot;Citation-79_3&amp;quot;\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;&lt;/td&gt;&#34;, &#34;&lt;td&gt;0.95&lt;/td&gt;&#34;, &#34;&lt;td title=\&#34;The actual output provides extensive compliance information, including specific standards (EN 388:2016, ISO 21420, AS 4399:2020), performance ratings for multiple glove types, and details on training and selection processes. There is no contradiction with the expected output, and the response goes well beyond the minimal requirement by including detailed compliance ratings and practical guidance. The only minor shortcoming is some repetition and slight verbosity, but no significant omission of detail.\&#34;&gt;The actual output provides extensive compliance information, including specific standards (EN 388:2016, ISO 21420, AS 4399:2020), performance ratings for multiple glove types, and details on training and selection processes. There is no contradiction with the expected output, and the response goes well beyond the minimal requirement by including detailed compliance ratings and practical guidance. The only minor shortcoming is some repetition and slight verbosity, but no significant omission of detail.&lt;/td&gt;&#34;, &#34;&lt;td&gt;06ef511f-3c80-4bcf-b53e-2b4a6b10d3f8&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:28&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;----------------------------- Captured stderr call -----------------------------\n\n&#34;}], &#34;tests/multi_turn_eval_openai.py::test_answer_relevancy[What&#39;s the purchase price of Durashield Cut D gloves?- don&#39;t know.]&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;duration&#34;: &#34;00:00:20&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td&gt;What&amp;apos;s the purchase price of Durashield Cut D gloves?&lt;/td&gt;&#34;, &#34;&lt;td&gt; don&amp;apos;t know.&lt;/td&gt;&#34;, &#34;&lt;td title=\&#34;**Purchase Price of Durashield Cut D Gloves**  \nThe available information does not specify the purchase price for Durashield Cut D gloves.\n\n**Performance Level Ratings**  \nDurashield Cut D gloves have the following performance ratings under EN 388:2016 +A1:2018:\n- **Abrasion Resistance (Cycles):** Rated up to 8000 cycles\n- **Blade Cut Resistance (Coupe Test/Index):** Test not carried out (X rating)\n- **Tear Resistance (Newtons):** Rated up to 75 Newtons\n- **Puncture Resistance (Newtons):** Rated up to 150 Newtons\n- **EN ISO Cut Resistance (Newtons):** Level D, which corresponds to 15 Newtons\n- **EN Impact Protection:** Not applicable\n\n**Compliance Level**  \nDurashield Cut D gloves comply with:\n- **EN 388:2016 +A1:2018** (Protective gloves against mechanical risks)\n- **ISO 21420** (General requirements for protective gloves)\n- **AS 4399:2020 UPF 50+** (Ultraviolet protection factor)\n- **BSI Certified Product BMP No 801210** for both EN 388:2016 +A1:2018 and ISO 21420:2020\n\nThe gloves are suitable for applications in building and construction, forestry, mining, and metal fabrication industries, and are ideal for any application requiring protection against mechanical risks [1]\u200b[2].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;The available information does not specify the purchase price of Durashield Cut D gloves. The documents provide details about the product features, sizing, packaging quantities (12 per pack, 144 per carton), and materials, but do not mention any pricing information [1]\u200b[2].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\&#34;&gt;**Purchase Price of Durashield Cut D Gloves**  \nThe available information does not specify the purchase price for Durashield Cut D gloves.\n\n**Performance Level Ratings**  \nDurashield Cut D gloves have the following performance ratings under EN 388:2016 +A1:2018:\n- **Abrasion Resistance (Cycles):** Rated up to 8000 cycles\n- **Blade Cut Resistance (Coupe Test/Index):** Test not carried out (X rating)\n- **Tear Resistance (Newtons):** Rated up to 75 Newtons\n- **Puncture Resistance (Newtons):** Rated up to 150 Newtons\n- **EN ISO Cut Resistance (Newtons):** Level D, which corresponds to 15 Newtons\n- **EN Impact Protection:** Not applicable\n\n**Compliance Level**  \nDurashield Cut D gloves comply with:\n- **EN 388:2016 +A1:2018** (Protective gloves against mechanical risks)\n- **ISO 21420** (General requirements for protective gloves)\n- **AS 4399:2020 UPF 50+** (Ultraviolet protection factor)\n- **BSI Certified Product BMP No 801210** for both EN 388:2016 +A1:2018 and ISO 21420:2020\n\nThe gloves are suitable for applications in building and construction, forestry, mining, and metal fabrication industries, and are ideal for any application requiring protection against mechanical risks [1]\u200b[2].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;The available information does not specify the purchase price of Durashield Cut D gloves. The documents provide details about the product features, sizing, packaging quantities (12 per pack, 144 per carton), and materials, but do not mention any pricing information [1]\u200b[2].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;&lt;/td&gt;&#34;, &#34;&lt;td&gt;0.12&lt;/td&gt;&#34;, &#34;&lt;td title=\&#34;The actual output does not contradict the expected output, but it fails to provide the requested purchase price for Durashield Cut D gloves or acknowledge lack of knowledge. Instead, it omits the key detail entirely and provides extensive, irrelevant information about glove selection, standards, and training. This omission of the core detail is heavily penalized per the evaluation steps.\&#34;&gt;The actual output does not contradict the expected output, but it fails to provide the requested purchase price for Durashield Cut D gloves or acknowledge lack of knowledge. Instead, it omits the key detail entirely and provides extensive, irrelevant information about glove selection, standards, and training. This omission of the core detail is heavily penalized per the evaluation steps.&lt;/td&gt;&#34;, &#34;&lt;td&gt;06ef511f-3c80-4bcf-b53e-2b4a6b10d3f8&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:20&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;input_text = &amp;quot;What&amp;#x27;s the purchase price of Durashield Cut D gloves?&amp;quot;, expected_output = &amp;quot; don&amp;#x27;t know.&amp;quot;\nstarted_client = &amp;lt;testinglib.copilot_client.CopilotStudioClient object at 0x0000013703BC9160&amp;gt;\nrequest = &amp;lt;FixtureRequest for &amp;lt;Coroutine test_answer_relevancy[What&amp;#x27;s the purchase price of Durashield Cut D gloves?- don&amp;#x27;t know.]&amp;gt;&amp;gt;\n\n    @pytest.mark.asyncio\n    @pytest.mark.parametrize(&amp;quot;input_text, expected_output&amp;quot;, test_cases)\n    async def test_answer_relevancy(input_text, expected_output, started_client, request):\n        actual_output = &amp;quot;&amp;quot;\n        async for activity in started_client.client.ask_question(input_text):\n            if activity and activity.type == ActivityTypes.message:\n                actual_output += activity.text or &amp;quot;&amp;quot;\n    \n        test_case = LLMTestCase(\n            input=input_text,\n            #actual_output=actual_output.strip(),\n            actual_output=&amp;#x27;Turn 1 - Azure AI Agent: Absolutely! Cut-resistant gloves are essential for mining operations due to the risk of handling sharp tools, heavy machinery, and jagged rocks. \\n\\nCould you share which specific tasks or materials your team handles most often? That way, I can recommend the right glove materials and cut-resistance levels for your environment.\\n\\nTurn 2 - Copilot Studio: **Cut-Resistant Gloves for Mining Operations**\\n\\n**Common Mining Tasks and Materials:**\\n- Handling sharp tools and equipment\\n- Operating heavy machinery\\n- Managing jagged rocks and metal components\\n\\n**Recommended Glove Materials:**\\n- **Polyethylene and Recycled Polyester:** Offers durability and cut resistance, suitable for tasks requiring protection against mechanical risks.\\n- **Nitrile Coating:** Provides enhanced grip in wet, oily, or dry conditions, and improves breathability for comfort during extended use.\\n- **Goatskin Leather:** Delivers comfort and flexibility, ideal for tasks requiring dexterity and abrasion resistance.\\n\\n**Performance Level Ratings (EN 388:2016):**\\n- **Durashield Cut D Nitrile Foam Gloves:**\\n  - Abrasion Resistance: Level 4 (8000 cycles)\\n  - Blade Cut Resistance: Level 5 (20.0 index)\\n  - Tear Resistance: Level 4 (75 Newtons)\\n  - Puncture Resistance: Level 4 (150 Newtons)\\n  - EN ISO Cut Resistance: Level D (15 Newtons)\\n  - Impact Protection: Not Applicable\\n  - Complies with EN 388:2016 +A1:2018 and ISO 21420 standards\\n  - Suitable for mining and metal fabrication industries [1]\\u200b[2]\\n\\n- **Mechanics Goat Palm W901 Glove:**\\n  - Abrasion Resistance: Level 2 (500 cycles)\\n  - Blade Cut Resistance: Level 1 (1.2 index)\\n  - Tear Resistance: Level 1 (25 Newtons)\\n  - Puncture Resistance: Level 1 (60 Newtons)\\n  - EN ISO Cut Resistance: Not rated\\n  - Impact Protection: Not Applicable\\n  - Complies with EN 388:2016 standards\\n  - Suitable for heavy equipment operation and general maintenance in mining [3]\\n\\n**Compliance Examples:**\\n- EN 388:2016 +A1:2018 Protective gloves against mechanical risks\\n- ISO 21420 General requirements for protective gloves\\n- AS 4399:2020 UPF 50+ for sun protection [1]\\u200b[2]\\n\\n**Selection Guidance:**\\n- For high-risk tasks involving sharp or jagged materials, select gloves with higher cut resistance (Level D or above).\\n- For tasks requiring dexterity and comfort, consider gloves with flexible materials and ergonomic design.\\n- Always inspect gloves before use and replace if damaged to maintain safety standards.\\n\\nThese recommendations ensure your team is protected according to industry standards and the specific hazards present in mining operations [1]\\u200b[3]\\u200b[2].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;**Tasks and Materials Handled by Mining Teams:**\\n\\n- **Building and Construction:** Mining teams are often involved in tasks related to building and construction within mining sites, such as erecting structures or maintaining facilities.\\n- **Forestry:** Some mining operations may intersect with forestry activities, requiring handling of wood and related materials.\\n- **Metal Fabrication:** Mining teams frequently handle metal materials, including extraction, processing, and fabrication of metals.\\n- **Mechanical Risks:** Tasks often involve handling materials or equipment that pose mechanical risks, necessitating protective gloves and other safety gear.\\n\\nThese activities require protection against mechanical risks, and suitable gloves are recommended for these tasks to ensure safety and compliance with industry standards [1].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n\\nTurn 3 - Azure AI Agent: Thanks for the detailed breakdown and the EN 388 ratings\u2014those are crucial for selecting the right gloves.\\n\\nGiven the variety of tasks, how do you currently train your team on glove selection and proper use? Do you have a standardized process in place, or does it vary depending on the operation or job role?\\n\\nTurn 4 - Copilot Studio: **Glove Selection and Training in Mining Operations**\\n\\n**Standardized Process vs. Role-Based Variation**\\n- Training on glove selection and proper use can be standardized or tailored based on the specific operation or job role.\\n- A standardized process typically involves:\\n  - Educating workers on the importance of wearing the correct glove size, as poorly fitted gloves can be hazardous by restricting dexterity or affecting grip and comfort.\\n  - Instructing staff to measure hand circumference 2cm up from the base of the thumb to determine the correct glove size.\\n  - Providing guidelines for inspecting gloves before each use to ensure they are not torn, punctured, or otherwise compromised.\\n  - Training on cleaning, storage, and disposal procedures, such as spot cleaning with a damp cloth, storing gloves in cool, dry places away from sunlight, and disposing of damaged gloves according to local regulations.\\n- Role-based variation may occur, with specific gloves recommended for tasks like welding, heavy equipment operation, or metal fabrication, each requiring different performance ratings and compliance standards.\\n\\n**Examples of Performance Level Ratings and Compliance Levels**\\n- **EN 388:2016** and **EN 388:2003** are common standards for mechanical risks, with ratings such as:\\n  - **2111X**: Indicates levels for abrasion, blade cut, tear, and puncture resistance, with \\&amp;#x27;X\\&amp;#x27; meaning a test was not carried out.\\n  - **4144**: For example, the WeldTECH Black Glove is rated 4144 under EN388:2003, which means:\\n    - Abrasion Resistance: Level 4\\n    - Blade Cut Resistance: Level 1\\n    - Tear Resistance: Level 4\\n    - Puncture Resistance: Level 4\\n- **EN 407:2004**: For heat and flame hazards, with ratings like 414X4X, indicating performance in burning behavior, contact heat, convective heat, radiant heat, and molten metal resistance.\\n- **EN 388:2016 +A1:2018** and **ISO 21420**: For gloves like Durashield Cut D, which are suitable for mining and metal fabrication, ensuring protection against mechanical risks and general requirements for protective gloves.\\n\\n**Practical Training Steps**\\n- Workers are trained to:\\n  - Inspect gloves for damage before use and replace if necessary.\\n  - Select gloves based on the required performance level for the task (e.g., higher abrasion and tear resistance for heavy-duty tasks).\\n  - Follow cleaning and storage instructions to maintain glove integrity.\\n  - Dispose of gloves responsibly, following local regulations.\\n\\n**Summary**\\n- Mining operations may use a combination of standardized training and role-specific guidelines for glove selection and use.\\n- Performance ratings like EN388:2003 4144 and compliance with standards such as EN 388:2016, EN 407:2004, and ISO 21420 are integral to the process, ensuring workers are protected according to the risks of their specific tasks [1]\\u200b[2]\\u200b[3].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;**Glove Selection and Training in Mining Operations**\\n\\n**Training Approach:**\\n- Teams are typically trained to select gloves based on the specific mechanical risks present in their work environment. For example, gloves like the PROSAFE Durashield Cut D are suitable for industries such as mining, metal fabrication, construction, and forestry, where protection against mechanical risks is essential.\\n- Training includes understanding the standards and compliance requirements, such as EN 388:2016 +A1:2018 for mechanical risks and ISO 21420 for general requirements. Workers are instructed to inspect gloves before each use to ensure they are not torn, punctured, or otherwise ineffective.\\n- Proper glove use is emphasized, including the importance of wearing the correct size for optimal dexterity and safety. Teams are taught how to measure hand circumference and select the appropriate glove size, as poorly fitted gloves can be hazardous by restricting movement or affecting grip and dexterity.\\n- Instructions are provided on glove care, including washing, drying, and storage, as well as regular checks for degradation over time.\\n\\n**Standardization:**\\n- There are standardized processes based on international and national standards (such as EN 388:2016 +A1:2018, ISO 21420, and AS 4399:2020 UPF 50+), which guide glove selection and use.\\n- However, the specific training and selection process may vary by operation or job role, depending on the unique risks and requirements of each task or site. For example, some gloves are only for minimal risks and should not be used where there is a risk of entanglement.\\n\\n**Summary:**\\n- While there are standardized guidelines and compliance requirements, the actual training and glove selection process can vary depending on the operation and job role, tailored to the specific hazards and needs of the mining environment [1]\\u200b[2].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\\n\\nTurn 5 - Azure AI Agent: That\u2019s a thorough approach, especially with the emphasis on sizing and inspection. \\n\\nHow often do you conduct refresher training or audits to ensure ongoing compliance with glove use and maintenance procedures? Have you noticed any challenges with adoption or consistency among different teams or roles?\\n\\n&amp;#x27;,\n            expected_output=expected_output\n        )\n    \n        metric = GEval(\n            name=&amp;quot;Correctness&amp;quot;,\n            evaluation_steps=[\n                &amp;quot;Check whether the facts in &amp;#x27;actual output&amp;#x27; contradict any facts in &amp;#x27;expected output&amp;#x27;&amp;quot;,\n                &amp;quot;You should also heavily penalize omission of detail&amp;quot;,\n                &amp;quot;Vague language, or contradicting OPINIONS, are OK&amp;quot;,\n                &amp;quot;Do not penalize disclaimers about AI-generated content being possibly incorrect&amp;quot;,\n            ],\n            threshold=0.50,\n            evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT, LLMTestCaseParams.EXPECTED_OUTPUT]\n        )\n        metric.measure(test_case)\n    \n        # Attach to pytest-html report\n        request.node.input_text = input_text\n        request.node.expected = expected_output\n        request.node.actual = actual_output.strip()\n        request.node.reason = metric.reason\n        request.node.score = f&amp;quot;{metric.score:.2f}&amp;quot;\n        request.node.conversation_id = started_client.conversation_id\n    \n&amp;gt;       assert metric.score &amp;gt;= metric.threshold, f&amp;quot;Score: {metric.score:.2f}, Reason: {metric.reason}&amp;quot;\nE       AssertionError: Score: 0.12, Reason: The actual output does not contradict the expected output, but it fails to provide the requested purchase price for Durashield Cut D gloves or acknowledge lack of knowledge. Instead, it omits the key detail entirely and provides extensive, irrelevant information about glove selection, standards, and training. This omission of the core detail is heavily penalized per the evaluation steps.\nE       assert 0.12227001491431584 &amp;gt;= 0.5\nE        +  where 0.12227001491431584 = &amp;lt;deepeval.metrics.g_eval.g_eval.GEval object at 0x0000013703DDBA80&amp;gt;.score\nE        +  and   0.5 = &amp;lt;deepeval.metrics.g_eval.g_eval.GEval object at 0x0000013703DDBA80&amp;gt;.threshold\n\ntests\\multi_turn_eval_openai.py:68: AssertionError\n\n----------------------------- Captured stderr call -----------------------------\n\n&#34;}], &#34;tests/multi_turn_eval_openai.py::test_answer_relevancy[What are the best gloves for Welding- \&#34;Weldtec ]&#34;: [{&#34;extras&#34;: [], &#34;result&#34;: &#34;Failed&#34;, &#34;duration&#34;: &#34;00:00:26&#34;, &#34;resultsTableRow&#34;: [&#34;&lt;td class=\&#34;col-result\&#34;&gt;Failed&lt;/td&gt;&#34;, &#34;&lt;td&gt;What are the best gloves for Welding&lt;/td&gt;&#34;, &#34;&lt;td&gt; &amp;quot;Weldtec &lt;/td&gt;&#34;, &#34;&lt;td title=\&#34;**Recommended Welding Gloves with High Performance Level Ratings**\n\n- **WeldTECH Black &amp;amp; Gold Welding Gloves** are a strong recommendation for welding applications requiring high performance and compliance with EN388:2003. These gloves have a performance level rating of **4144** under EN388:2003, which means:\n  - **Abrasion Resistance (4):** The gloves withstand at least 8,000 abrasion cycles, offering excellent durability against wear.\n  - **Blade Cut Resistance (1):** The gloves provide basic protection against cuts, suitable for welding but not for tasks with high cut risks.\n  - **Tear Resistance (4):** The gloves can resist tearing forces up to 75 Newtons, ensuring they remain intact during demanding tasks.\n  - **Puncture Resistance (4):** The gloves withstand puncture forces up to 150 Newtons, protecting hands from sharp objects commonly encountered in welding.\n\n**Additional Features:**\n- Made from AB Grade blue split shoulder cow leather for durability.\n- Flame retardant stitching for extra protection.\n- Cotton knit lining in palm and fingers for comfort and sweat absorption.\n- Denim lined cuff and 41cm length for lower arm protection.\n- Suitable for stick and MIG welding, torch cutting, and grinding.\n- Complies with EN388:2003, EN407:2004, and EN12477:2001 standards for welders.\n\n**Summary of EN388:2003 Ratings:**\n- **Abrasion Resistance:** Measures how well the glove material withstands repeated rubbing.\n- **Blade Cut Resistance:** Indicates the glove\u2019s ability to resist cuts from sharp blades.\n- **Tear Resistance:** Assesses the force required to tear the glove.\n- **Puncture Resistance:** Evaluates the glove\u2019s ability to resist punctures from pointed objects.\n\nThese gloves offer robust protection for welding tasks, especially where abrasion, tear, and puncture resistance are critical, while maintaining compliance with relevant safety standards [1].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;The **WeldTEC Black &amp;amp; Gold Gloves** are highly recommended for welding applications. Here are the key features and benefits:\n\n**Material:**\n- Made from AB Grade blue split shoulder cow leather for durability and protection.\n\n**Stitching:**\n- Flame retardant thread for extra safety.\n\n**Comfort:**\n- Cotton knit lining in palm and fingers for comfort and sweat absorption.\n\n**Cuff:**\n- Denim lined cuff for added protection.\n\n**Length:**\n- 41cm, providing lower arm protection.\n\n**Performance Ratings:**\n- **Abrasion Resistance:** Level 4\n- **Blade Cut Resistance:** Level 1\n- **Tear Resistance:** Level 4\n- **Puncture Resistance:** Level 4\n\n**Heat &amp;amp; Flame Protection:**\n- Complies with EN 407:2004 and EN 12477:2001 standards for welders.\n\n**Applications:**\n- Suitable for stick and MIG welding, torch cutting, and grinding.\n\n**Size:**\n- Large (9), one size fits most.\n\n**Benefits:**\n- High protection against mechanical and heat hazards.\n- Comfortable for extended use due to sweat-absorbing lining.\n- Extended length for added safety during welding tasks.\n\n**Summary:**\nThe WeldTEC Black &amp;amp; Gold gloves are specifically designed for welding, offering superior protection, comfort, and compliance with relevant safety standards, making them an excellent choice for welding applications [1].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\&#34;&gt;**Recommended Welding Gloves with High Performance Level Ratings**\n\n- **WeldTECH Black &amp;amp; Gold Welding Gloves** are a strong recommendation for welding applications requiring high performance and compliance with EN388:2003. These gloves have a performance level rating of **4144** under EN388:2003, which means:\n  - **Abrasion Resistance (4):** The gloves withstand at least 8,000 abrasion cycles, offering excellent durability against wear.\n  - **Blade Cut Resistance (1):** The gloves provide basic protection against cuts, suitable for welding but not for tasks with high cut risks.\n  - **Tear Resistance (4):** The gloves can resist tearing forces up to 75 Newtons, ensuring they remain intact during demanding tasks.\n  - **Puncture Resistance (4):** The gloves withstand puncture forces up to 150 Newtons, protecting hands from sharp objects commonly encountered in welding.\n\n**Additional Features:**\n- Made from AB Grade blue split shoulder cow leather for durability.\n- Flame retardant stitching for extra protection.\n- Cotton knit lining in palm and fingers for comfort and sweat absorption.\n- Denim lined cuff and 41cm length for lower arm protection.\n- Suitable for stick and MIG welding, torch cutting, and grinding.\n- Complies with EN388:2003, EN407:2004, and EN12477:2001 standards for welders.\n\n**Summary of EN388:2003 Ratings:**\n- **Abrasion Resistance:** Measures how well the glove material withstands repeated rubbing.\n- **Blade Cut Resistance:** Indicates the glove\u2019s ability to resist cuts from sharp blades.\n- **Tear Resistance:** Assesses the force required to tear the glove.\n- **Puncture Resistance:** Evaluates the glove\u2019s ability to resist punctures from pointed objects.\n\nThese gloves offer robust protection for welding tasks, especially where abrasion, tear, and puncture resistance are critical, while maintaining compliance with relevant safety standards [1].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;The **WeldTEC Black &amp;amp; Gold Gloves** are highly recommended for welding applications. Here are the key features and benefits:\n\n**Material:**\n- Made from AB Grade blue split shoulder cow leather for durability and protection.\n\n**Stitching:**\n- Flame retardant thread for extra safety.\n\n**Comfort:**\n- Cotton knit lining in palm and fingers for comfort and sweat absorption.\n\n**Cuff:**\n- Denim lined cuff for added protection.\n\n**Length:**\n- 41cm, providing lower arm protection.\n\n**Performance Ratings:**\n- **Abrasion Resistance:** Level 4\n- **Blade Cut Resistance:** Level 1\n- **Tear Resistance:** Level 4\n- **Puncture Resistance:** Level 4\n\n**Heat &amp;amp; Flame Protection:**\n- Complies with EN 407:2004 and EN 12477:2001 standards for welders.\n\n**Applications:**\n- Suitable for stick and MIG welding, torch cutting, and grinding.\n\n**Size:**\n- Large (9), one size fits most.\n\n**Benefits:**\n- High protection against mechanical and heat hazards.\n- Comfortable for extended use due to sweat-absorbing lining.\n- Extended length for added safety during welding tasks.\n\n**Summary:**\nThe WeldTEC Black &amp;amp; Gold gloves are specifically designed for welding, offering superior protection, comfort, and compliance with relevant safety standards, making them an excellent choice for welding applications [1].\n\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;&lt;/td&gt;&#34;, &#34;&lt;td&gt;0.09&lt;/td&gt;&#34;, &#34;&lt;td title=\&#34;The actual output does not contradict the expected output, but it omits nearly all relevant detail. The expected output simply states &amp;apos;Weldtec&amp;apos;, which is a specific glove brand or model for welding, while the actual output provides extensive information about mining gloves, cut resistance, and standards, but does not mention welding gloves or Weldtec at all. This is a significant omission of detail directly related to the input question about welding gloves, resulting in very poor alignment with the evaluation steps.\&#34;&gt;The actual output does not contradict the expected output, but it omits nearly all relevant detail. The expected output simply states &amp;apos;Weldtec&amp;apos;, which is a specific glove brand or model for welding, while the actual output provides extensive information about mining gloves, cut resistance, and standards, but does not mention welding gloves or Weldtec at all. This is a significant omission of detail directly related to the input question about welding gloves, resulting in very poor alignment with the evaluation steps.&lt;/td&gt;&#34;, &#34;&lt;td&gt;06ef511f-3c80-4bcf-b53e-2b4a6b10d3f8&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-duration\&#34;&gt;00:00:26&lt;/td&gt;&#34;, &#34;&lt;td class=\&#34;col-links\&#34;&gt;&lt;/td&gt;&#34;], &#34;log&#34;: &#34;input_text = &amp;#x27;What are the best gloves for Welding&amp;#x27;, expected_output = &amp;#x27; &amp;quot;Weldtec &amp;#x27;\nstarted_client = &amp;lt;testinglib.copilot_client.CopilotStudioClient object at 0x0000013703BC9160&amp;gt;\nrequest = &amp;lt;FixtureRequest for &amp;lt;Coroutine test_answer_relevancy[What are the best gloves for Welding- &amp;quot;Weldtec ]&amp;gt;&amp;gt;\n\n    @pytest.mark.asyncio\n    @pytest.mark.parametrize(&amp;quot;input_text, expected_output&amp;quot;, test_cases)\n    async def test_answer_relevancy(input_text, expected_output, started_client, request):\n        actual_output = &amp;quot;&amp;quot;\n        async for activity in started_client.client.ask_question(input_text):\n            if activity and activity.type == ActivityTypes.message:\n                actual_output += activity.text or &amp;quot;&amp;quot;\n    \n        test_case = LLMTestCase(\n            input=input_text,\n            #actual_output=actual_output.strip(),\n            actual_output=&amp;#x27;Turn 1 - Azure AI Agent: Absolutely! Cut-resistant gloves are essential for mining operations due to the risk of handling sharp tools, heavy machinery, and jagged rocks. \\n\\nCould you share which specific tasks or materials your team handles most often? That way, I can recommend the right glove materials and cut-resistance levels for your environment.\\n\\nTurn 2 - Copilot Studio: **Cut-Resistant Gloves for Mining Operations**\\n\\n**Common Mining Tasks and Materials:**\\n- Handling sharp tools and equipment\\n- Operating heavy machinery\\n- Managing jagged rocks and metal components\\n\\n**Recommended Glove Materials:**\\n- **Polyethylene and Recycled Polyester:** Offers durability and cut resistance, suitable for tasks requiring protection against mechanical risks.\\n- **Nitrile Coating:** Provides enhanced grip in wet, oily, or dry conditions, and improves breathability for comfort during extended use.\\n- **Goatskin Leather:** Delivers comfort and flexibility, ideal for tasks requiring dexterity and abrasion resistance.\\n\\n**Performance Level Ratings (EN 388:2016):**\\n- **Durashield Cut D Nitrile Foam Gloves:**\\n  - Abrasion Resistance: Level 4 (8000 cycles)\\n  - Blade Cut Resistance: Level 5 (20.0 index)\\n  - Tear Resistance: Level 4 (75 Newtons)\\n  - Puncture Resistance: Level 4 (150 Newtons)\\n  - EN ISO Cut Resistance: Level D (15 Newtons)\\n  - Impact Protection: Not Applicable\\n  - Complies with EN 388:2016 +A1:2018 and ISO 21420 standards\\n  - Suitable for mining and metal fabrication industries [1]\\u200b[2]\\n\\n- **Mechanics Goat Palm W901 Glove:**\\n  - Abrasion Resistance: Level 2 (500 cycles)\\n  - Blade Cut Resistance: Level 1 (1.2 index)\\n  - Tear Resistance: Level 1 (25 Newtons)\\n  - Puncture Resistance: Level 1 (60 Newtons)\\n  - EN ISO Cut Resistance: Not rated\\n  - Impact Protection: Not Applicable\\n  - Complies with EN 388:2016 standards\\n  - Suitable for heavy equipment operation and general maintenance in mining [3]\\n\\n**Compliance Examples:**\\n- EN 388:2016 +A1:2018 Protective gloves against mechanical risks\\n- ISO 21420 General requirements for protective gloves\\n- AS 4399:2020 UPF 50+ for sun protection [1]\\u200b[2]\\n\\n**Selection Guidance:**\\n- For high-risk tasks involving sharp or jagged materials, select gloves with higher cut resistance (Level D or above).\\n- For tasks requiring dexterity and comfort, consider gloves with flexible materials and ergonomic design.\\n- Always inspect gloves before use and replace if damaged to maintain safety standards.\\n\\nThese recommendations ensure your team is protected according to industry standards and the specific hazards present in mining operations [1]\\u200b[3]\\u200b[2].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;**Tasks and Materials Handled by Mining Teams:**\\n\\n- **Building and Construction:** Mining teams are often involved in tasks related to building and construction within mining sites, such as erecting structures or maintaining facilities.\\n- **Forestry:** Some mining operations may intersect with forestry activities, requiring handling of wood and related materials.\\n- **Metal Fabrication:** Mining teams frequently handle metal materials, including extraction, processing, and fabrication of metals.\\n- **Mechanical Risks:** Tasks often involve handling materials or equipment that pose mechanical risks, necessitating protective gloves and other safety gear.\\n\\nThese activities require protection against mechanical risks, and suitable gloves are recommended for these tasks to ensure safety and compliance with industry standards [1].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n\\nTurn 3 - Azure AI Agent: Thanks for the detailed breakdown and the EN 388 ratings\u2014those are crucial for selecting the right gloves.\\n\\nGiven the variety of tasks, how do you currently train your team on glove selection and proper use? Do you have a standardized process in place, or does it vary depending on the operation or job role?\\n\\nTurn 4 - Copilot Studio: **Glove Selection and Training in Mining Operations**\\n\\n**Standardized Process vs. Role-Based Variation**\\n- Training on glove selection and proper use can be standardized or tailored based on the specific operation or job role.\\n- A standardized process typically involves:\\n  - Educating workers on the importance of wearing the correct glove size, as poorly fitted gloves can be hazardous by restricting dexterity or affecting grip and comfort.\\n  - Instructing staff to measure hand circumference 2cm up from the base of the thumb to determine the correct glove size.\\n  - Providing guidelines for inspecting gloves before each use to ensure they are not torn, punctured, or otherwise compromised.\\n  - Training on cleaning, storage, and disposal procedures, such as spot cleaning with a damp cloth, storing gloves in cool, dry places away from sunlight, and disposing of damaged gloves according to local regulations.\\n- Role-based variation may occur, with specific gloves recommended for tasks like welding, heavy equipment operation, or metal fabrication, each requiring different performance ratings and compliance standards.\\n\\n**Examples of Performance Level Ratings and Compliance Levels**\\n- **EN 388:2016** and **EN 388:2003** are common standards for mechanical risks, with ratings such as:\\n  - **2111X**: Indicates levels for abrasion, blade cut, tear, and puncture resistance, with \\&amp;#x27;X\\&amp;#x27; meaning a test was not carried out.\\n  - **4144**: For example, the WeldTECH Black Glove is rated 4144 under EN388:2003, which means:\\n    - Abrasion Resistance: Level 4\\n    - Blade Cut Resistance: Level 1\\n    - Tear Resistance: Level 4\\n    - Puncture Resistance: Level 4\\n- **EN 407:2004**: For heat and flame hazards, with ratings like 414X4X, indicating performance in burning behavior, contact heat, convective heat, radiant heat, and molten metal resistance.\\n- **EN 388:2016 +A1:2018** and **ISO 21420**: For gloves like Durashield Cut D, which are suitable for mining and metal fabrication, ensuring protection against mechanical risks and general requirements for protective gloves.\\n\\n**Practical Training Steps**\\n- Workers are trained to:\\n  - Inspect gloves for damage before use and replace if necessary.\\n  - Select gloves based on the required performance level for the task (e.g., higher abrasion and tear resistance for heavy-duty tasks).\\n  - Follow cleaning and storage instructions to maintain glove integrity.\\n  - Dispose of gloves responsibly, following local regulations.\\n\\n**Summary**\\n- Mining operations may use a combination of standardized training and role-specific guidelines for glove selection and use.\\n- Performance ratings like EN388:2003 4144 and compliance with standards such as EN 388:2016, EN 407:2004, and ISO 21420 are integral to the process, ensuring workers are protected according to the risks of their specific tasks [1]\\u200b[2]\\u200b[3].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\\n[3]: cite:3 &amp;quot;Citation-3&amp;quot;**Glove Selection and Training in Mining Operations**\\n\\n**Training Approach:**\\n- Teams are typically trained to select gloves based on the specific mechanical risks present in their work environment. For example, gloves like the PROSAFE Durashield Cut D are suitable for industries such as mining, metal fabrication, construction, and forestry, where protection against mechanical risks is essential.\\n- Training includes understanding the standards and compliance requirements, such as EN 388:2016 +A1:2018 for mechanical risks and ISO 21420 for general requirements. Workers are instructed to inspect gloves before each use to ensure they are not torn, punctured, or otherwise ineffective.\\n- Proper glove use is emphasized, including the importance of wearing the correct size for optimal dexterity and safety. Teams are taught how to measure hand circumference and select the appropriate glove size, as poorly fitted gloves can be hazardous by restricting movement or affecting grip and dexterity.\\n- Instructions are provided on glove care, including washing, drying, and storage, as well as regular checks for degradation over time.\\n\\n**Standardization:**\\n- There are standardized processes based on international and national standards (such as EN 388:2016 +A1:2018, ISO 21420, and AS 4399:2020 UPF 50+), which guide glove selection and use.\\n- However, the specific training and selection process may vary by operation or job role, depending on the unique risks and requirements of each task or site. For example, some gloves are only for minimal risks and should not be used where there is a risk of entanglement.\\n\\n**Summary:**\\n- While there are standardized guidelines and compliance requirements, the actual training and glove selection process can vary depending on the operation and job role, tailored to the specific hazards and needs of the mining environment [1]\\u200b[2].\\n\\n[1]: cite:1 &amp;quot;Citation-1&amp;quot;\\n[2]: cite:2 &amp;quot;Citation-2&amp;quot;\\n\\nTurn 5 - Azure AI Agent: That\u2019s a thorough approach, especially with the emphasis on sizing and inspection. \\n\\nHow often do you conduct refresher training or audits to ensure ongoing compliance with glove use and maintenance procedures? Have you noticed any challenges with adoption or consistency among different teams or roles?\\n\\n&amp;#x27;,\n            expected_output=expected_output\n        )\n    \n        metric = GEval(\n            name=&amp;quot;Correctness&amp;quot;,\n            evaluation_steps=[\n                &amp;quot;Check whether the facts in &amp;#x27;actual output&amp;#x27; contradict any facts in &amp;#x27;expected output&amp;#x27;&amp;quot;,\n                &amp;quot;You should also heavily penalize omission of detail&amp;quot;,\n                &amp;quot;Vague language, or contradicting OPINIONS, are OK&amp;quot;,\n                &amp;quot;Do not penalize disclaimers about AI-generated content being possibly incorrect&amp;quot;,\n            ],\n            threshold=0.50,\n            evaluation_params=[LLMTestCaseParams.INPUT, LLMTestCaseParams.ACTUAL_OUTPUT, LLMTestCaseParams.EXPECTED_OUTPUT]\n        )\n        metric.measure(test_case)\n    \n        # Attach to pytest-html report\n        request.node.input_text = input_text\n        request.node.expected = expected_output\n        request.node.actual = actual_output.strip()\n        request.node.reason = metric.reason\n        request.node.score = f&amp;quot;{metric.score:.2f}&amp;quot;\n        request.node.conversation_id = started_client.conversation_id\n    \n&amp;gt;       assert metric.score &amp;gt;= metric.threshold, f&amp;quot;Score: {metric.score:.2f}, Reason: {metric.reason}&amp;quot;\nE       AssertionError: Score: 0.09, Reason: The actual output does not contradict the expected output, but it omits nearly all relevant detail. The expected output simply states &amp;#x27;Weldtec&amp;#x27;, which is a specific glove brand or model for welding, while the actual output provides extensive information about mining gloves, cut resistance, and standards, but does not mention welding gloves or Weldtec at all. This is a significant omission of detail directly related to the input question about welding gloves, resulting in very poor alignment with the evaluation steps.\nE       assert 0.08519527982093666 &amp;gt;= 0.5\nE        +  where 0.08519527982093666 = &amp;lt;deepeval.metrics.g_eval.g_eval.GEval object at 0x00000137045362C0&amp;gt;.score\nE        +  and   0.5 = &amp;lt;deepeval.metrics.g_eval.g_eval.GEval object at 0x00000137045362C0&amp;gt;.threshold\n\ntests\\multi_turn_eval_openai.py:68: AssertionError\n\n----------------------------- Captured stderr call -----------------------------\n\n&#34;}]}, &#34;renderCollapsed&#34;: [&#34;all&#34;], &#34;initialSort&#34;: &#34;result&#34;, &#34;title&#34;: &#34;multi_turn_eval_openai.html&#34;}"></div>
+    <script>
+      (function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+const { getCollapsedCategory, setCollapsedIds } = require('./storage.js')
+
+class DataManager {
+    setManager(data) {
+        const collapsedCategories = [...getCollapsedCategory(data.renderCollapsed)]
+        const collapsedIds = []
+        const tests = Object.values(data.tests).flat().map((test, index) => {
+            const collapsed = collapsedCategories.includes(test.result.toLowerCase())
+            const id = `test_${index}`
+            if (collapsed) {
+                collapsedIds.push(id)
+            }
+            return {
+                ...test,
+                id,
+                collapsed,
+            }
+        })
+        const dataBlob = { ...data, tests }
+        this.data = { ...dataBlob }
+        this.renderData = { ...dataBlob }
+        setCollapsedIds(collapsedIds)
+    }
+
+    get allData() {
+        return { ...this.data }
+    }
+
+    resetRender() {
+        this.renderData = { ...this.data }
+    }
+
+    setRender(data) {
+        this.renderData.tests = [...data]
+    }
+
+    toggleCollapsedItem(id) {
+        this.renderData.tests = this.renderData.tests.map((test) =>
+            test.id === id ? { ...test, collapsed: !test.collapsed } : test,
+        )
+    }
+
+    set allCollapsed(collapsed) {
+        this.renderData = { ...this.renderData, tests: [...this.renderData.tests.map((test) => (
+            { ...test, collapsed }
+        ))] }
+    }
+
+    get testSubset() {
+        return [...this.renderData.tests]
+    }
+
+    get environment() {
+        return this.renderData.environment
+    }
+
+    get initialSort() {
+        return this.data.initialSort
+    }
+}
+
+module.exports = {
+    manager: new DataManager(),
+}
+
+},{"./storage.js":8}],2:[function(require,module,exports){
+const mediaViewer = require('./mediaviewer.js')
+const templateEnvRow = document.getElementById('template_environment_row')
+const templateResult = document.getElementById('template_results-table__tbody')
+
+function htmlToElements(html) {
+    const temp = document.createElement('template')
+    temp.innerHTML = html
+    return temp.content.childNodes
+}
+
+const find = (selector, elem) => {
+    if (!elem) {
+        elem = document
+    }
+    return elem.querySelector(selector)
+}
+
+const findAll = (selector, elem) => {
+    if (!elem) {
+        elem = document
+    }
+    return [...elem.querySelectorAll(selector)]
+}
+
+const dom = {
+    getStaticRow: (key, value) => {
+        const envRow = templateEnvRow.content.cloneNode(true)
+        const isObj = typeof value === 'object' && value !== null
+        const values = isObj ? Object.keys(value).map((k) => `${k}: ${value[k]}`) : null
+
+        const valuesElement = htmlToElements(
+            values ? `<ul>${values.map((val) => `<li>${val}</li>`).join('')}<ul>` : `<div>${value}</div>`)[0]
+        const td = findAll('td', envRow)
+        td[0].textContent = key
+        td[1].appendChild(valuesElement)
+
+        return envRow
+    },
+    getResultTBody: ({ testId, id, log, extras, resultsTableRow, tableHtml, result, collapsed }) => {
+        const resultBody = templateResult.content.cloneNode(true)
+        resultBody.querySelector('tbody').classList.add(result.toLowerCase())
+        resultBody.querySelector('tbody').id = testId
+        resultBody.querySelector('.collapsible').dataset.id = id
+
+        resultsTableRow.forEach((html) => {
+            const t = document.createElement('template')
+            t.innerHTML = html
+            resultBody.querySelector('.collapsible').appendChild(t.content)
+        })
+
+        if (log) {
+            // Wrap lines starting with "E" with span.error to color those lines red
+            const wrappedLog = log.replace(/^E.*$/gm, (match) => `<span class="error">${match}</span>`)
+            resultBody.querySelector('.log').innerHTML = wrappedLog
+        } else {
+            resultBody.querySelector('.log').remove()
+        }
+
+        if (collapsed) {
+            resultBody.querySelector('.collapsible > td')?.classList.add('collapsed')
+            resultBody.querySelector('.extras-row').classList.add('hidden')
+        } else {
+            resultBody.querySelector('.collapsible > td')?.classList.remove('collapsed')
+        }
+
+        const media = []
+        extras?.forEach(({ name, format_type, content }) => {
+            if (['image', 'video'].includes(format_type)) {
+                media.push({ path: content, name, format_type })
+            }
+
+            if (format_type === 'html') {
+                resultBody.querySelector('.extraHTML').insertAdjacentHTML('beforeend', `<div>${content}</div>`)
+            }
+        })
+        mediaViewer.setup(resultBody, media)
+
+        // Add custom html from the pytest_html_results_table_html hook
+        tableHtml?.forEach((item) => {
+            resultBody.querySelector('td[class="extra"]').insertAdjacentHTML('beforeend', item)
+        })
+
+        return resultBody
+    },
+}
+
+module.exports = {
+    dom,
+    htmlToElements,
+    find,
+    findAll,
+}
+
+},{"./mediaviewer.js":6}],3:[function(require,module,exports){
+const { manager } = require('./datamanager.js')
+const { doSort } = require('./sort.js')
+const storageModule = require('./storage.js')
+
+const getFilteredSubSet = (filter) =>
+    manager.allData.tests.filter(({ result }) => filter.includes(result.toLowerCase()))
+
+const doInitFilter = () => {
+    const currentFilter = storageModule.getVisible()
+    const filteredSubset = getFilteredSubSet(currentFilter)
+    manager.setRender(filteredSubset)
+}
+
+const doFilter = (type, show) => {
+    if (show) {
+        storageModule.showCategory(type)
+    } else {
+        storageModule.hideCategory(type)
+    }
+
+    const currentFilter = storageModule.getVisible()
+    const filteredSubset = getFilteredSubSet(currentFilter)
+    manager.setRender(filteredSubset)
+
+    const sortColumn = storageModule.getSort()
+    doSort(sortColumn, true)
+}
+
+module.exports = {
+    doFilter,
+    doInitFilter,
+}
+
+},{"./datamanager.js":1,"./sort.js":7,"./storage.js":8}],4:[function(require,module,exports){
+const { redraw, bindEvents, renderStatic } = require('./main.js')
+const { doInitFilter } = require('./filter.js')
+const { doInitSort } = require('./sort.js')
+const { manager } = require('./datamanager.js')
+const data = JSON.parse(document.getElementById('data-container').dataset.jsonblob)
+
+function init() {
+    manager.setManager(data)
+    doInitFilter()
+    doInitSort()
+    renderStatic()
+    redraw()
+    bindEvents()
+}
+
+init()
+
+},{"./datamanager.js":1,"./filter.js":3,"./main.js":5,"./sort.js":7}],5:[function(require,module,exports){
+const { dom, find, findAll } = require('./dom.js')
+const { manager } = require('./datamanager.js')
+const { doSort } = require('./sort.js')
+const { doFilter } = require('./filter.js')
+const {
+    getVisible,
+    getCollapsedIds,
+    setCollapsedIds,
+    getSort,
+    getSortDirection,
+    possibleFilters,
+} = require('./storage.js')
+
+const removeChildren = (node) => {
+    while (node.firstChild) {
+        node.removeChild(node.firstChild)
+    }
+}
+
+const renderStatic = () => {
+    const renderEnvironmentTable = () => {
+        const environment = manager.environment
+        const rows = Object.keys(environment).map((key) => dom.getStaticRow(key, environment[key]))
+        const table = document.getElementById('environment')
+        removeChildren(table)
+        rows.forEach((row) => table.appendChild(row))
+    }
+    renderEnvironmentTable()
+}
+
+const addItemToggleListener = (elem) => {
+    elem.addEventListener('click', ({ target }) => {
+        const id = target.parentElement.dataset.id
+        manager.toggleCollapsedItem(id)
+
+        const collapsedIds = getCollapsedIds()
+        if (collapsedIds.includes(id)) {
+            const updated = collapsedIds.filter((item) => item !== id)
+            setCollapsedIds(updated)
+        } else {
+            collapsedIds.push(id)
+            setCollapsedIds(collapsedIds)
+        }
+        redraw()
+    })
+}
+
+const renderContent = (tests) => {
+    const sortAttr = getSort(manager.initialSort)
+    const sortAsc = JSON.parse(getSortDirection())
+    const rows = tests.map(dom.getResultTBody)
+    const table = document.getElementById('results-table')
+    const tableHeader = document.getElementById('results-table-head')
+
+    const newTable = document.createElement('table')
+    newTable.id = 'results-table'
+
+    // remove all sorting classes and set the relevant
+    findAll('.sortable', tableHeader).forEach((elem) => elem.classList.remove('asc', 'desc'))
+    tableHeader.querySelector(`.sortable[data-column-type="${sortAttr}"]`)?.classList.add(sortAsc ? 'desc' : 'asc')
+    newTable.appendChild(tableHeader)
+
+    if (!rows.length) {
+        const emptyTable = document.getElementById('template_results-table__body--empty').content.cloneNode(true)
+        newTable.appendChild(emptyTable)
+    } else {
+        rows.forEach((row) => {
+            if (!!row) {
+                findAll('.collapsible td:not(.col-links', row).forEach(addItemToggleListener)
+                find('.logexpander', row).addEventListener('click',
+                    (evt) => evt.target.parentNode.classList.toggle('expanded'),
+                )
+                newTable.appendChild(row)
+            }
+        })
+    }
+
+    table.replaceWith(newTable)
+}
+
+const renderDerived = () => {
+    const currentFilter = getVisible()
+    possibleFilters.forEach((result) => {
+        const input = document.querySelector(`input[data-test-result="${result}"]`)
+        input.checked = currentFilter.includes(result)
+    })
+}
+
+const bindEvents = () => {
+    const filterColumn = (evt) => {
+        const { target: element } = evt
+        const { testResult } = element.dataset
+
+        doFilter(testResult, element.checked)
+        const collapsedIds = getCollapsedIds()
+        const updated = manager.renderData.tests.map((test) => {
+            return {
+                ...test,
+                collapsed: collapsedIds.includes(test.id),
+            }
+        })
+        manager.setRender(updated)
+        redraw()
+    }
+
+    const header = document.getElementById('environment-header')
+    header.addEventListener('click', () => {
+        const table = document.getElementById('environment')
+        table.classList.toggle('hidden')
+        header.classList.toggle('collapsed')
+    })
+
+    findAll('input[name="filter_checkbox"]').forEach((elem) => {
+        elem.addEventListener('click', filterColumn)
+    })
+
+    findAll('.sortable').forEach((elem) => {
+        elem.addEventListener('click', (evt) => {
+            const { target: element } = evt
+            const { columnType } = element.dataset
+            doSort(columnType)
+            redraw()
+        })
+    })
+
+    document.getElementById('show_all_details').addEventListener('click', () => {
+        manager.allCollapsed = false
+        setCollapsedIds([])
+        redraw()
+    })
+    document.getElementById('hide_all_details').addEventListener('click', () => {
+        manager.allCollapsed = true
+        const allIds = manager.renderData.tests.map((test) => test.id)
+        setCollapsedIds(allIds)
+        redraw()
+    })
+}
+
+const redraw = () => {
+    const { testSubset } = manager
+
+    renderContent(testSubset)
+    renderDerived()
+}
+
+module.exports = {
+    redraw,
+    bindEvents,
+    renderStatic,
+}
+
+},{"./datamanager.js":1,"./dom.js":2,"./filter.js":3,"./sort.js":7,"./storage.js":8}],6:[function(require,module,exports){
+class MediaViewer {
+    constructor(assets) {
+        this.assets = assets
+        this.index = 0
+    }
+
+    nextActive() {
+        this.index = this.index === this.assets.length - 1 ? 0 : this.index + 1
+        return [this.activeFile, this.index]
+    }
+
+    prevActive() {
+        this.index = this.index === 0 ? this.assets.length - 1 : this.index -1
+        return [this.activeFile, this.index]
+    }
+
+    get currentIndex() {
+        return this.index
+    }
+
+    get activeFile() {
+        return this.assets[this.index]
+    }
+}
+
+
+const setup = (resultBody, assets) => {
+    if (!assets.length) {
+        resultBody.querySelector('.media').classList.add('hidden')
+        return
+    }
+
+    const mediaViewer = new MediaViewer(assets)
+    const container = resultBody.querySelector('.media-container')
+    const leftArrow = resultBody.querySelector('.media-container__nav--left')
+    const rightArrow = resultBody.querySelector('.media-container__nav--right')
+    const mediaName = resultBody.querySelector('.media__name')
+    const counter = resultBody.querySelector('.media__counter')
+    const imageEl = resultBody.querySelector('img')
+    const sourceEl = resultBody.querySelector('source')
+    const videoEl = resultBody.querySelector('video')
+
+    const setImg = (media, index) => {
+        if (media?.format_type === 'image') {
+            imageEl.src = media.path
+
+            imageEl.classList.remove('hidden')
+            videoEl.classList.add('hidden')
+        } else if (media?.format_type === 'video') {
+            sourceEl.src = media.path
+
+            videoEl.classList.remove('hidden')
+            imageEl.classList.add('hidden')
+        }
+
+        mediaName.innerText = media?.name
+        counter.innerText = `${index + 1} / ${assets.length}`
+    }
+    setImg(mediaViewer.activeFile, mediaViewer.currentIndex)
+
+    const moveLeft = () => {
+        const [media, index] = mediaViewer.prevActive()
+        setImg(media, index)
+    }
+    const doRight = () => {
+        const [media, index] = mediaViewer.nextActive()
+        setImg(media, index)
+    }
+    const openImg = () => {
+        window.open(mediaViewer.activeFile.path, '_blank')
+    }
+    if (assets.length === 1) {
+        container.classList.add('media-container--fullscreen')
+    } else {
+        leftArrow.addEventListener('click', moveLeft)
+        rightArrow.addEventListener('click', doRight)
+    }
+    imageEl.addEventListener('click', openImg)
+}
+
+module.exports = {
+    setup,
+}
+
+},{}],7:[function(require,module,exports){
+const { manager } = require('./datamanager.js')
+const storageModule = require('./storage.js')
+
+const genericSort = (list, key, ascending, customOrder) => {
+    let sorted
+    if (customOrder) {
+        sorted = list.sort((a, b) => {
+            const aValue = a.result.toLowerCase()
+            const bValue = b.result.toLowerCase()
+
+            const aIndex = customOrder.findIndex((item) => item.toLowerCase() === aValue)
+            const bIndex = customOrder.findIndex((item) => item.toLowerCase() === bValue)
+
+            // Compare the indices to determine the sort order
+            return aIndex - bIndex
+        })
+    } else {
+        sorted = list.sort((a, b) => a[key] === b[key] ? 0 : a[key] > b[key] ? 1 : -1)
+    }
+
+    if (ascending) {
+        sorted.reverse()
+    }
+    return sorted
+}
+
+const durationSort = (list, ascending) => {
+    const parseDuration = (duration) => {
+        if (duration.includes(':')) {
+            // If it's in the format "HH:mm:ss"
+            const [hours, minutes, seconds] = duration.split(':').map(Number)
+            return (hours * 3600 + minutes * 60 + seconds) * 1000
+        } else {
+            // If it's in the format "nnn ms"
+            return parseInt(duration)
+        }
+    }
+    const sorted = list.sort((a, b) => parseDuration(a['duration']) - parseDuration(b['duration']))
+    if (ascending) {
+        sorted.reverse()
+    }
+    return sorted
+}
+
+const doInitSort = () => {
+    const type = storageModule.getSort(manager.initialSort)
+    const ascending = storageModule.getSortDirection()
+    const list = manager.testSubset
+    const initialOrder = ['Error', 'Failed', 'Rerun', 'XFailed', 'XPassed', 'Skipped', 'Passed']
+
+    storageModule.setSort(type)
+    storageModule.setSortDirection(ascending)
+
+    if (type?.toLowerCase() === 'original') {
+        manager.setRender(list)
+    } else {
+        let sortedList
+        switch (type) {
+        case 'duration':
+            sortedList = durationSort(list, ascending)
+            break
+        case 'result':
+            sortedList = genericSort(list, type, ascending, initialOrder)
+            break
+        default:
+            sortedList = genericSort(list, type, ascending)
+            break
+        }
+        manager.setRender(sortedList)
+    }
+}
+
+const doSort = (type, skipDirection) => {
+    const newSortType = storageModule.getSort(manager.initialSort) !== type
+    const currentAsc = storageModule.getSortDirection()
+    let ascending
+    if (skipDirection) {
+        ascending = currentAsc
+    } else {
+        ascending = newSortType ? false : !currentAsc
+    }
+    storageModule.setSort(type)
+    storageModule.setSortDirection(ascending)
+
+    const list = manager.testSubset
+    const sortedList = type === 'duration' ? durationSort(list, ascending) : genericSort(list, type, ascending)
+    manager.setRender(sortedList)
+}
+
+module.exports = {
+    doInitSort,
+    doSort,
+}
+
+},{"./datamanager.js":1,"./storage.js":8}],8:[function(require,module,exports){
+const possibleFilters = [
+    'passed',
+    'skipped',
+    'failed',
+    'error',
+    'xfailed',
+    'xpassed',
+    'rerun',
+]
+
+const getVisible = () => {
+    const url = new URL(window.location.href)
+    const settings = new URLSearchParams(url.search).get('visible')
+    const lower = (item) => {
+        const lowerItem = item.toLowerCase()
+        if (possibleFilters.includes(lowerItem)) {
+            return lowerItem
+        }
+        return null
+    }
+    return settings === null ?
+        possibleFilters :
+        [...new Set(settings?.split(',').map(lower).filter((item) => item))]
+}
+
+const hideCategory = (categoryToHide) => {
+    const url = new URL(window.location.href)
+    const visibleParams = new URLSearchParams(url.search).get('visible')
+    const currentVisible = visibleParams ? visibleParams.split(',') : [...possibleFilters]
+    const settings = [...new Set(currentVisible)].filter((f) => f !== categoryToHide).join(',')
+
+    url.searchParams.set('visible', settings)
+    window.history.pushState({}, null, unescape(url.href))
+}
+
+const showCategory = (categoryToShow) => {
+    if (typeof window === 'undefined') {
+        return
+    }
+    const url = new URL(window.location.href)
+    const currentVisible = new URLSearchParams(url.search).get('visible')?.split(',').filter(Boolean) ||
+        [...possibleFilters]
+    const settings = [...new Set([categoryToShow, ...currentVisible])]
+    const noFilter = possibleFilters.length === settings.length || !settings.length
+
+    noFilter ? url.searchParams.delete('visible') : url.searchParams.set('visible', settings.join(','))
+    window.history.pushState({}, null, unescape(url.href))
+}
+
+const getSort = (initialSort) => {
+    const url = new URL(window.location.href)
+    let sort = new URLSearchParams(url.search).get('sort')
+    if (!sort) {
+        sort = initialSort || 'result'
+    }
+    return sort
+}
+
+const setSort = (type) => {
+    const url = new URL(window.location.href)
+    url.searchParams.set('sort', type)
+    window.history.pushState({}, null, unescape(url.href))
+}
+
+const getCollapsedCategory = (renderCollapsed) => {
+    let categories
+    if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href)
+        const collapsedItems = new URLSearchParams(url.search).get('collapsed')
+        switch (true) {
+        case !renderCollapsed && collapsedItems === null:
+            categories = ['passed']
+            break
+        case collapsedItems?.length === 0 || /^["']{2}$/.test(collapsedItems):
+            categories = []
+            break
+        case /^all$/.test(collapsedItems) || collapsedItems === null && /^all$/.test(renderCollapsed):
+            categories = [...possibleFilters]
+            break
+        default:
+            categories = collapsedItems?.split(',').map((item) => item.toLowerCase()) || renderCollapsed
+            break
+        }
+    } else {
+        categories = []
+    }
+    return categories
+}
+
+const getSortDirection = () => JSON.parse(sessionStorage.getItem('sortAsc')) || false
+const setSortDirection = (ascending) => sessionStorage.setItem('sortAsc', ascending)
+
+const getCollapsedIds = () => JSON.parse(sessionStorage.getItem('collapsedIds')) || []
+const setCollapsedIds = (list) => sessionStorage.setItem('collapsedIds', JSON.stringify(list))
+
+module.exports = {
+    getVisible,
+    hideCategory,
+    showCategory,
+    getCollapsedIds,
+    setCollapsedIds,
+    getSort,
+    setSort,
+    getSortDirection,
+    setSortDirection,
+    getCollapsedCategory,
+    possibleFilters,
+}
+
+},{}]},{},[4]);
+    </script>
+  </footer>
+</html>
