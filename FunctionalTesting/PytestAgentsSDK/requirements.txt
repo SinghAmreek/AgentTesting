@@ -1,0 +1,27 @@
+# Copilot SDK (client)
+--extra-index-url https://test.pypi.org/simple
+microsoft-agents-core
+microsoft-agents-copilotstudio-client
+
+# OpenAI SDK for agent-to-agent communication (works with GitHub Models and Azure OpenAI)
+openai
+httpx
+
+# Core SDK
+# microsoft-agents-core
+
+# Test dependencies
+pytest
+python-dotenv
+pytest-html
+
+# MSAL
+msal
+msal-extensions
+
+# HTML handling
+py
+
+# DeepEval
+deepeval
+
